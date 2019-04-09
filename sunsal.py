@@ -24,7 +24,7 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
         pred = np.matmul(M, self.X)
         return pred
 
-    def _sunsal(self, M, y, AL_iters=1000, lambda_0=0., positivity=True, addone=False, tol=1e-4, x0 = None, verbose=True):
+    def _sunsal(self, M, y, AL_iters=1000, lambda_0=0., positivity=False, addone=False, tol=1e-4, x0 = None, verbose=True):
 
         """
          SUNSAL -> sparse unmixing via variable splitting and augmented
@@ -278,7 +278,7 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
                     # dual residue
                     res_d = mu*splin.norm(z-z0)
                     if verbose:
-                        print("i = {:d}, res_p = {:f}, res_d = {:f}\n").format(i,res_p,res_d)
+                        print(("i = %d, res_p = %f, res_d = %f\n")%(i,res_p,res_d))
                     # update mu
                     if res_p > 10*res_d:
                         mu = mu*2
@@ -321,7 +321,7 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
                     # dual residue
                     res_d = mu*splin.norm(z-z0)
                     if verbose:
-                        print("i = {:d}, res_p = {:f}, res_d = {:f}\n").format(i,res_p,res_d)
+                        print(("i = %d, res_p = %f, res_d = %f\n")%(i,res_p,res_d))
                     # update mu
                     if res_p > 10*res_d:
                         mu = mu*2
@@ -372,7 +372,7 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
                     # dual residue
                     res_d = mu*splin.norm(z-z0)
                     if verbose:
-                        print("i = {:d}, res_p = {:f}, res_d = {:f}\n").format(i,res_p,res_d)
+                        print(("i = %d, res_p = %f, res_d = %f\n")%(i,res_p,res_d))
                     # update mu
                     if res_p > 10*res_d:
                         mu = mu*2

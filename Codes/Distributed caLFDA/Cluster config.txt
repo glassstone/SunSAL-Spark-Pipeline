@@ -1,0 +1,25 @@
+**Cluster Config:**
+10 Nodes 3
+16 cores per Node 16
+64GB RAM per Node 64
+
+Based on the recommendations mentioned above, Let’s assign 5 core per executors => --executor-cores = 5
+Leave 1 core per node for Hadoop/Yarn daemons => Num cores available per node = 16-1 = 15
+So, Total available of cores in cluster = 15 x 10 = 150 45
+Number of available executors = (total cores/num-cores-per-executor) = 150/5 = 30 9
+Leaving 1 executor for ApplicationManager => --num-executors = 29 8
+Number of executors per node = 30/10 = 3
+Memory per executor = 64GB/3 = 21GB
+Counting off heap overhead = 7% of 21GB = 3GB. So, actual --executor-memory = 21 - 3 = 18GB
+
+
+vCPUs(or hyperthreads
+
+16 vCore, 32 GiB memory, EBS only storage
+EBS Storage:32 GiB
+
+--executor-cores 4
+--executor-instances = 11
+--executor-memory 6330M
+spark.yarn.executor.memoryOverhead = 633M
+spark.default.parallelism = 44

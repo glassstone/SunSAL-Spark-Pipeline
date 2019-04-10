@@ -7,26 +7,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from numpy import linalg as LA
 
 class SunSALClassifier(BaseEstimator, ClassifierMixin):
-    '''
-        M refers to the data
-        X refers to the mixing matrix
-    '''
-    
-    def __init__(self):
-        # Add hyperparamters
-        self.X = None
-
-    def fit(self, M, y):
-        self.X, self.primal_residual, self.primal_residual, total_iterations = self._sunsal(M, y)
-        
-    def predict(self, M):
-        assert(not(self.X is None)), "Fit the classifier before predicting"
-        pred = np.matmul(M, self.X)
-        return pred
-
-    def _sunsal(self, M, y, AL_iters=1000, lambda_0=0., positivity=False, addone=False, tol=1e-4, x0 = None, verbose=True):
-
-        """
+    """
          SUNSAL -> sparse unmixing via variable splitting and augmented
          Lagrangian methods
 
@@ -147,8 +128,30 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
 
         Software translated from matlab to python by Adrien Lagrange (ad.lagrange@gmail.com), 2018.
 
-        """
+        """ 
+    def __init__(self, AL_iters=1000, lambda_0=0., positivity=False, addone=False, tol=1e-4, x0 = None, verbose=True):
+        # TODO: Validate hyper-parameters
+        self.AL_iters = AL_iters
+        self.lambda_0 = lambda_0
+        self.positivity = positivity
+        self.addone = addone
+        self.tol = tol
+        self.x0 = x0
+        self.verbose = verbose
+        # The estimated mixing matrix
+        self.X = None
 
+    def fit(self, M, y):
+        self.X, self.primal_residual, self.primal_residual, total_iterations = self._sunsal(M, y)
+        
+    def predict(self, M):
+        assert(not(self.X is None)), "Fit the classifier before predicting"
+        pred = np.matmul(M, self.X)
+        return pred
+
+    def _sunsal(self, M, y):
+
+       
         #--------------------------------------------------------------
         # test for number of required parametres
         #--------------------------------------------------------------
@@ -165,13 +168,12 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
         #--------------------------------------------------------------
         # Read the optional parameters
         #--------------------------------------------------------------
-        AL_iters = int(AL_iters)
-        if (AL_iters < 0 ):
+        if (self.AL_iters < 0 ):
             sys.exit('AL_iters must a positive integer')
 
         # If lambda is scalar convert it into vector
-        lambda_0 = ( lambda_0 * sp.ones((N,p)) ).T
-        if (lambda_0<0).any():
+        self.lambda_0 = ( self.lambda_0 * sp.ones((N,p)) ).T
+        if (self.lambda_0<0).any():
             sys.exit('lambda_0 must be positive')
 
         # compute mean norm
@@ -179,17 +181,17 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
         # rescale M and Y and lambda
         M = M/norm_m
         y = y/norm_m
-        lambda_0 = lambda_0/norm_m**2
+        self.lambda_0 = self.lambda_0/norm_m**2
 
-        if x0 is not None:
-            if (x0.shape[0]==p) or (x0.shape[0]==N):
+        if self.x0 is not None:
+            if (self.x0.shape[0]==p) or (self.x0.shape[0]==N):
                 sys.exit('initial X is not inconsistent with M or Y')
 
 
         #---------------------------------------------
         # just least squares
         #---------------------------------------------
-        if (lambda_0.sum() == 0) and (not positivity) and (not addone):
+        if (self.lambda_0.sum() == 0) and (not self.positivity) and (not self.addone):
             M_plus = np.linalg.pinv(M)
             x = np.matmul(M_plus, y)
             res_p = 0.
@@ -200,7 +202,7 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
         # least squares constrained (sum(x) = 1)
         #---------------------------------------------
         SMALL = 1e-12;
-        if (lambda_0.sum() == 0) and (addone) and (not positivity):
+        if (self.lambda_0.sum() == 0) and (self.addone) and (not self.positivity):
             F = sp.dot(M.T,M)
             # test if F is invertible
             if LA.cond(F) > SMALL:
@@ -220,7 +222,7 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
         #  Constants and initializations
         #---------------------------------------------
         mu_AL = 0.01
-        mu = 10*lambda_0.mean() + mu_AL
+        mu = 10*self.lambda_0.mean() + mu_AL
 
         [UF,SF] = splin.svd(sp.dot(M.T,M))[:2]
         IF = sp.dot( sp.dot(UF,sp.diag(1./(SF+mu))) , UF.T )
@@ -236,10 +238,10 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
         #---------------------------------------------
 
         # no intial solution supplied
-        if x0 is None:
+        if self.x0 is None:
            x = sp.dot( sp.dot(IF,M.T) , y)
         else:
-            x = x0
+            x = self.x0
 
         z = x
         # scaled Lagrange Multipliers
@@ -248,8 +250,8 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
         #---------------------------------------------
         #  AL iterations - main body
         #---------------------------------------------
-        tol1 = sp.sqrt(N*p)*tol
-        tol2 = sp.sqrt(N*p)*tol
+        tol1 = sp.sqrt(N*p)*self.tol
+        tol2 = sp.sqrt(N*p)*self.tol
         i=1
         res_p = sp.inf
         res_d = sp.inf
@@ -259,8 +261,8 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
         #--------------------------------------------------------------------------
         # constrained  leat squares (CLS) X >= 0
         #--------------------------------------------------------------------------
-        if (lambda_0.sum() ==  0)  and (not addone):
-            while (i <= AL_iters) and ((abs(res_p) > tol1) or (abs(res_d) > tol2)):
+        if (self.lambda_0.sum() ==  0)  and (not self.addone):
+            while (i <= self.AL_iters) and ((abs(res_p) > tol1) or (abs(res_d) > tol2)):
                 # save z to be used later
                 if (i%10) == 1:
                     z0 = z
@@ -277,7 +279,7 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
                     res_p = splin.norm(x-z)
                     # dual residue
                     res_d = mu*splin.norm(z-z0)
-                    if verbose:
+                    if self.verbose:
                         print(("i = %d, res_p = %f, res_d = %f\n")%(i,res_p,res_d))
                     # update mu
                     if res_p > 10*res_d:
@@ -302,8 +304,8 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
             #--------------------------------------------------------------------------
             # Fully constrained  leat squares (FCLS) X >= 0
             #--------------------------------------------------------------------------
-        elif (lambda_0.sum() ==  0)  and addone:
-            while (i <= AL_iters) and ((abs(res_p) > tol1) or (abs(res_d) > tol2)):
+        elif (self.lambda_0.sum() ==  0)  and self.addone:
+            while (i <= self.AL_iters) and ((abs(res_p) > tol1) or (abs(res_d) > tol2)):
                 # save z to be used later
                 if (i%10) == 1:
                     z0 = z
@@ -320,7 +322,7 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
                     res_p = splin.norm(x-z)
                     # dual residue
                     res_d = mu*splin.norm(z-z0)
-                    if verbose:
+                    if self.verbose:
                         print(("i = %d, res_p = %f, res_d = %f\n")%(i,res_p,res_d))
                     # update mu
                     if res_p > 10*res_d:
@@ -347,18 +349,18 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
             #--------------------------------------------------------------------------
         else:
             # implement soft_th
-            while (i <= AL_iters) and ((abs(res_p) > tol1) or (abs(res_d) > tol2)):
+            while (i <= self.AL_iters) and ((abs(res_p) > tol1) or (abs(res_d) > tol2)):
                 # save z to be used later
                 if (i%10) == 1:
                     z0 = z
                 # minimize with respect to z
                 nu = x-d
-                z = sp.sign(nu) * sp.maximum(sp.absolute(nu) - lambda_0/mu,0)
+                z = sp.sign(nu) * sp.maximum(sp.absolute(nu) - self.lambda_0/mu,0)
                 # teste for positivity
-                if positivity:
+                if self.positivity:
                     z = sp.maximum(z,0)
                 # teste for sum-to-one
-                if addone:
+                if self.addone:
                     x = sp.dot(IF1,yy+mu*(z+d)) + x_aux
                 else:
                     x = sp.dot(IF,yy+mu*(z+d))
@@ -371,7 +373,7 @@ class SunSALClassifier(BaseEstimator, ClassifierMixin):
                     res_p = splin.norm(x-z)
                     # dual residue
                     res_d = mu*splin.norm(z-z0)
-                    if verbose:
+                    if self.verbose:
                         print(("i = %d, res_p = %f, res_d = %f\n")%(i,res_p,res_d))
                     # update mu
                     if res_p > 10*res_d:
